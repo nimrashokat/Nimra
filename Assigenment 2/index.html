@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Smart Quiz Pro | Interactive MCQ Challenge</title>
+    <!-- Bootstrap 5 CSS + Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- html2pdf for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        * {
+            transition: all 0.3s ease;
+        }
+        
+        body {
+            font-family: 'Poppins', 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #2b6cb0 0%, #9f7aea 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            position: relative;
+        }
+        
+        /* Dark mode styles */
+        body.dark-mode {
+            background: linear-gradient(135deg, #1a365d 0%, #44337a 100%);
+        }
+        
+        body.dark-mode .quiz-card {
+            background: rgba(26, 32, 44, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(113, 128, 150, 0.5);
+        }
+        
+        body.dark-mode .option-btn {
+            background: rgba(45, 55, 72, 0.8);
+            border-color: #4a5568;
+            color: #e2e8f0;
+        }
+        
+        body.dark-mode .option-btn:hover:not(.disabled-opt) {
+            background: #2d3748;
+            border-color: #fbbf24;
+        }
+        
+        body.dark-mode .timer-circle {
+            background: #2d3748;
+            color: #fbbf24;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        body.dark-mode .result-card {
+            background: #2d3748;
+        }
+        
+        .quiz-card {
+            max-width: 900px;
+            width: 100%;
+            border-radius: 2rem;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            animation: slideUp 0.5s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .card-body-custom {
+            padding: 2rem;
+        }
+        
+        /* Multi-colored segmented progress bar - New colors */
+        .progress-tracker {
+            display: flex;
+            gap: 6px;
+            margin: 1.5rem 0;
+        }
+        
+        .progress-segment {
+            height: 8px;
+            border-radius: 10px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .progress-segment:hover {
+            transform: scaleY(1.5);
+        }
+        
+        .progress-segment.answered-correct {
+            background: linear-gradient(90deg, #48bb78, #68d391);
+            box-shadow: 0 0 8px rgba(72, 187, 120, 0.5);
+        }
+        
+        .progress-segment.answered-wrong {
+            background: linear-gradient(90deg, #f56565, #fc8181);
+            box-shadow: 0 0 8px rgba(245, 101, 101, 0.5);
+        }
+        
+        .progress-segment.unanswered {
+            background: #cbd5e0;
+        }
+        
+        .progress-segment.current {
+            background: linear-gradient(90deg, #ed8936, #f6ad55);
+            box-shadow: 0 0 12px rgba(237, 137, 54, 0.6);
+            transform: scaleY(1.2);
+        }
+        
+        .timer-circle {
+            background: linear-gradient(135deg, #fed7aa, #feebc8);
+            border-radius: 50px;
+            padding: 8px 20px;
+            font-weight: 700;
+            font-size: 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.02);
+            }
+        }
+        
+        .timer-warning {
+            background: linear-gradient(135deg, #fed7aa, #feb2b2);
+            color: #c53030;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .option-btn {
+            border-radius: 60px;
+            padding: 14px 22px;
+            margin-bottom: 12px;
+            text-align: left;
+            font-weight: 500;
+            border: 2px solid #e2e8f0;
+            background: white;
+            transition: all 0.25s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .option-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(237, 137, 54, 0.1);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .option-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .option-btn:hover:not(.disabled-opt) {
+            transform: translateX(8px);
+            border-color: #ed8936;
+            background: #fffaf0;
+        }
+        
+        .correct-highlight {
+            background: linear-gradient(135deg, #c6f6d5, #9ae6b4) !important;
+            border-color: #48bb78 !important;
+            color: #276749;
+            transform: translateX(8px);
+        }
+        
+        .wrong-highlight {
+            background: linear-gradient(135deg, #fed7d7, #feb2b2) !important;
+            border-color: #f56565 !important;
+            color: #9b2c2c;
+            transform: translateX(8px);
+        }
+        
+        .disabled-opt {
+            cursor: default;
+            opacity: 0.9;
+        }
+        
+        .btn-custom {
+            border-radius: 50px;
+            padding: 10px 28px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .result-card {
+            background: white;
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            animation: fadeIn 0.6s ease;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .result-detail-item {
+            margin-bottom: 1.25rem;
+            padding: 1rem;
+            background: #fefaf5;
+            border-radius: 1rem;
+            border-left: 4px solid #ed8936;
+            transition: all 0.3s;
+        }
+        
+        .result-detail-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        .badge-custom {
+            padding: 6px 12px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 640px) {
+            .card-body-custom {
+                padding: 1.25rem;
+            }
+            
+            .option-btn {
+                padding: 12px 16px;
+                font-size: 0.9rem;
+            }
+            
+            .timer-circle {
+                font-size: 1rem;
+                padding: 6px 14px;
+            }
+        }
+        
+        .question-number {
+            background: linear-gradient(135deg, #ed8936, #9f7aea);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 700;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #dd6b20, #c05621);
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            border: none;
+        }
+        
+        .btn-success:hover {
+            background: linear-gradient(135deg, #38a169, #2f855a);
+        }
+    </style>
+</head>
+<body>
+
+<div class="quiz-card" id="quizAppContainer">
+    <div class="card-body-custom">
+        <!-- Header with dark mode toggle -->
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+            <div>
+                <h2 class="fw-bold mb-0" style="background: linear-gradient(135deg, #ed8936 0%, #9f7aea 100%); -webkit-background-clip: text; background-clip: text; color: transparent;">
+                    <i class="bi bi-quiz"></i> CodeQuiz Pro
+                </h2>
+                <p class="text-muted mb-0 mt-1">✨ 60 Seconds Challenge | Interactive Learning</p>
+            </div>
+            <button class="btn btn-outline-secondary rounded-pill" id="darkModeToggleBtn">
+                <i class="bi bi-moon-stars"></i> Dark Mode
+            </button>
+        </div>
+        
+        <!-- Progress bar -->
+        <div class="progress-tracker" id="progressTrackerBar"></div>
+        
+        <!-- Quiz Area -->
+        <div id="quizArea"></div>
+        
+        <!-- Action Buttons -->
+        <div class="d-flex justify-content-between align-items-center gap-3 mt-4" id="actionButtons">
+            <button class="btn btn-primary btn-custom flex-grow-1" id="nextBtn">
+                Next Question <i class="bi bi-arrow-right-short"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-custom" id="restartBtn">
+                <i class="bi bi-arrow-repeat"></i> Restart
+            </button>
+        </div>
+        
+        <!-- Result Panel -->
+        <div id="resultPanel" style="display: none;"></div>
+        
+        <footer class="text-center mt-4 pt-3 text-muted small border-top">
+            <i class="bi bi-github"></i> CLO2 Project | 60s Timer | Responsive Quiz | PDF Export
+        </footer>
+    </div>
+</div>
+
+<script>
+    // Enhanced Question Bank
+    const MASTER_QUESTIONS = [
+        {
+            text: "Which method selects an element by ID in JavaScript?",
+            options: ["querySelector()", "querySelectorAll()", "getElementById()", "getElementsByID()"],
+            correct: 2,
+            explanation: "✅ getElementById() is the standard DOM method to select an element by its unique ID attribute. querySelector('#id') also works but getElementById() is faster and specifically designed for this purpose."
+        },
+        {
+            text: "Which JavaScript keyword declares a block-scoped variable?",
+            options: ["const", "let", "var", "all of these"],
+            correct: 1,
+            explanation: "✅ 'let' and 'const' are block-scoped variables. 'var' is function-scoped, not block-scoped. So the correct answer is 'let' (or 'const', but among single-choice, 'let' is the primary example)."
+        },
+        {
+            text: "What does CSS Grid property 'display: grid' primarily create?",
+            options: ["Flexible boxes (1D layout)", "Two-dimensional layout system", "Inline block container", "Table layout"],
+            correct: 1,
+            explanation: "🎯 CSS Grid is a powerful 2D layout system that handles both rows and columns simultaneously, unlike Flexbox which is primarily 1-dimensional."
+        },
+        {
+            text: "Which Bootstrap class creates a full-width responsive container?",
+            options: ["container-fluid", "container", "container-md", "container-responsive"],
+            correct: 0,
+            explanation: "💧 container-fluid spans the entire viewport width continuously, while container has fixed widths at breakpoints."
+        },
+        {
+            text: "Which HTML tag correctly links an external JavaScript file?",
+            options: ["<script href='script.js'>", "<script src='script.js'>", "<js src='script.js'>", "<link js='script.js'>"],
+            correct: 1,
+            explanation: "📦 The <script> tag with src attribute is the correct way to include external JavaScript files in HTML."
+        },
+        {
+            text: "What does JavaScript's map() method return?",
+            options: ["A new transformed array", "The original array modified", "A boolean value", "A string"],
+            correct: 0,
+            explanation: "🔄 map() creates a brand new array by applying a function to each element of the original array without mutating it."
+        },
+        {
+            text: "What does the 'async' keyword do in JavaScript?",
+            options: ["Makes a function return a Promise", "Creates a synchronous function", "Defines a class", "Imports modules"],
+            correct: 0,
+            explanation: "⚡ async functions always return a Promise and allow using await for asynchronous operations."
+        }
+    ];
+    
+    // Helper functions
+    function getRandomQuestions(count) {
+        let shuffled = [...MASTER_QUESTIONS];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled.slice(0, count);
+    }
+    
+    // App State
+    let currentQuestions = [];
+    let userAnswers = [];
+    let answerStatus = [];
+    let currentIndex = 0;
+    let timerSeconds = 60; // Changed to 60 seconds
+    let timerInterval = null;
+    let quizCompleted = false;
+    let darkModeEnabled = false;
+    
+    // DOM Elements
+    const quizArea = document.getElementById('quizArea');
+    const nextBtn = document.getElementById('nextBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const progressTracker = document.getElementById('progressTrackerBar');
+    const resultPanelDiv = document.getElementById('resultPanel');
+    const darkToggle = document.getElementById('darkModeToggleBtn');
+    
+    // Theme Management
+    function applyDarkMode() {
+        if (darkModeEnabled) {
+            document.body.classList.add('dark-mode');
+            darkToggle.innerHTML = '<i class="bi bi-sun"></i> Light Mode';
+        } else {
+            document.body.classList.remove('dark-mode');
+            darkToggle.innerHTML = '<i class="bi bi-moon-stars"></i> Dark Mode';
+        }
+    }
+    
+    darkToggle.addEventListener('click', () => {
+        darkModeEnabled = !darkModeEnabled;
+        applyDarkMode();
+    });
+    
+    // Timer Functions
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+    
+    function startTimer() {
+        if (quizCompleted) return;
+        stopTimer();
+        timerSeconds = 60; // Reset to 60 seconds
+        updateTimerDisplay();
+        
+        timerInterval = setInterval(() => {
+            if (quizCompleted) return;
+            
+            if (timerSeconds <= 1) {
+                if (userAnswers[currentIndex] === -1 && !quizCompleted) {
+                    handleTimeOut();
+                }
+            } else {
+                timerSeconds--;
+                updateTimerDisplay();
+                
+                // Add warning effect when timer is low (last 10 seconds)
+                if (timerSeconds <= 10) {
+                    const timerElement = document.getElementById('liveTimer');
+                    if (timerElement) {
+                        timerElement.parentElement.classList.add('timer-warning');
+                    }
+                }
+                
+                if (timerSeconds === 0) {
+                    if (userAnswers[currentIndex] === -1 && !quizCompleted) {
+                        handleTimeOut();
+                    }
+                }
+            }
+        }, 1000);
+    }
+    
+    function updateTimerDisplay() {
+        const timerSpan = document.getElementById('liveTimer');
+        if (timerSpan) {
+            const minutes = Math.floor(timerSeconds / 60);
+            const seconds = timerSeconds % 60;
+            timerSpan.innerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timerSeconds <= 10) {
+                timerSpan.style.color = '#dc2626';
+                timerSpan.style.fontWeight = 'bold';
+            } else {
+                timerSpan.style.color = '';
+            }
+        }
+    }
+    
+    function handleTimeOut() {
+        if (userAnswers[currentIndex] !== -1) return;
+        
+        userAnswers[currentIndex] = -1;
+        answerStatus[currentIndex] = 'wrong';
+        renderCurrentQuestion(true);
+        renderProgressSegments();
+        
+        if (currentIndex === currentQuestions.length - 1) {
+            finishQuiz();
+        } else {
+            stopTimer();
+            setTimeout(() => {
+                if (!quizCompleted) moveToNextQuestion();
+            }, 1200);
+        }
+    }
+    
+    // Progress Bar
+    function renderProgressSegments() {
+        const total = currentQuestions.length;
+        progressTracker.innerHTML = '';
+        
+        for (let i = 0; i < total; i++) {
+            const segment = document.createElement('div');
+            segment.style.flex = '1';
+            segment.className = 'progress-segment';
+            
+            if (answerStatus[i] === 'correct') {
+                segment.classList.add('answered-correct');
+            } else if (answerStatus[i] === 'wrong') {
+                segment.classList.add('answered-wrong');
+            } else {
+                segment.classList.add('unanswered');
+            }
+            
+            if (i === currentIndex && !quizCompleted) {
+                segment.classList.add('current');
+            }
+            
+            segment.addEventListener('click', () => {
+                if (!quizCompleted && i < currentIndex) {
+                    currentIndex = i;
+                    renderCurrentQuestion();
+                    renderProgressSegments();
+                    stopTimer();
+                    startTimer();
+                }
+            });
+            
+            progressTracker.appendChild(segment);
+        }
+    }
+    
+    // Render Current Question
+    function renderCurrentQuestion(isTimeoutForce = false) {
+        if (quizCompleted) return;
+        
+        const q = currentQuestions[currentIndex];
+        const selectedIdx = userAnswers[currentIndex];
+        const isAnswered = selectedIdx !== -1;
+        
+        let optionsHtml = '';
+        q.options.forEach((opt, idx) => {
+            let additionalClass = '';
+            let iconHtml = '';
+            
+            if (isAnswered) {
+                if (idx === q.correct) {
+                    additionalClass = 'correct-highlight';
+                    iconHtml = '<i class="bi bi-check-circle-fill float-end mt-1" style="font-size: 1.2rem;"></i>';
+                } else if (idx === selectedIdx && idx !== q.correct) {
+                    additionalClass = 'wrong-highlight';
+                    iconHtml = '<i class="bi bi-x-circle-fill float-end mt-1" style="font-size: 1.2rem;"></i>';
+                } else if (idx === selectedIdx && idx === q.correct) {
+                    additionalClass = 'correct-highlight';
+                    iconHtml = '<i class="bi bi-check-circle-fill float-end mt-1" style="font-size: 1.2rem;"></i>';
+                }
+            }
+            
+            optionsHtml += `
+                <div class="option-btn ${additionalClass} ${isAnswered ? 'disabled-opt' : ''}" data-opt-index="${idx}">
+                    ${String.fromCharCode(65 + idx)}. ${opt} ${iconHtml}
+                </div>
+            `;
+        });
+        
+        const explanationHtml = isAnswered ? `
+            <div class="alert alert-info mt-3 small" style="border-radius: 1rem; background: #fefaf5; border-color: #fed7aa;">
+                <i class="bi bi-lightbulb"></i> <strong>Explanation:</strong> ${q.explanation}
+            </div>
+        ` : '';
+        
+        const timerClass = timerSeconds <= 10 ? 'timer-warning' : '';
+        const minutes = Math.floor(timerSeconds / 60);
+        const seconds = timerSeconds % 60;
+        
+        const questionHtml = `
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <h5 class="mb-0">
+                    <span class="question-number">Question ${currentIndex+1}/${currentQuestions.length}</span>
+                </h5>
+                <div class="timer-circle ${timerClass}">
+                    <i class="bi bi-hourglass-split"></i>
+                    <span id="liveTimer">${minutes}:${seconds.toString().padStart(2, '0')}</span>
+                </div>
+            </div>
+            <div class="mb-4 fs-5 fw-semibold p-3 rounded-3" style="background: #fffaf5;">
+                ${q.text}
+            </div>
+            <div id="optionsContainer">
+                ${optionsHtml}
+            </div>
+            ${explanationHtml}
+        `;
+        
+        quizArea.innerHTML = questionHtml;
+        
+        if (!isAnswered && !quizCompleted && !isTimeoutForce) {
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    if (userAnswers[currentIndex] !== -1) return;
+                    const optIdx = parseInt(btn.dataset.optIndex);
+                    handleAnswer(optIdx);
+                });
+            });
+            startTimer();
+        } else if (isAnswered) {
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                btn.style.cursor = 'default';
+            });
+        }
+    }
+    
+    function handleAnswer(selectedIdx) {
+        if (quizCompleted || userAnswers[currentIndex] !== -1) return;
+        
+        const q = currentQuestions[currentIndex];
+        const isCorrect = (selectedIdx === q.correct);
+        userAnswers[currentIndex] = selectedIdx;
+        answerStatus[currentIndex] = isCorrect ? 'correct' : 'wrong';
+        
+        stopTimer();
+        renderCurrentQuestion();
+        renderProgressSegments();
+        
+        if (currentIndex === currentQuestions.length - 1) {
+            setTimeout(() => {
+                if (!quizCompleted) finishQuiz();
+            }, 1200);
+        } else {
+            setTimeout(() => {
+                if (!quizCompleted && currentIndex < currentQuestions.length - 1) {
+                    moveToNextQuestion();
+                }
+            }, 1200);
+        }
+    }
+    
+    function moveToNextQuestion() {
+        if (quizCompleted) return;
+        if (currentIndex + 1 < currentQuestions.length) {
+            currentIndex++;
+            renderCurrentQuestion();
+            renderProgressSegments();
+        } else {
+            finishQuiz();
+        }
+    }
+    
+    function finishQuiz() {
+        if (quizCompleted) return;
+        quizCompleted = true;
+        stopTimer();
+        
+        let score = 0;
+        let resultDetails = [];
+        
+        currentQuestions.forEach((q, idx) => {
+            const userAns = userAnswers[idx];
+            const isCorrect = (userAns === q.correct);
+            if (isCorrect) score++;
+            const selectedText = (userAns !== -1) ? q.options[userAns] : "⏰ Timeout (Not answered)";
+            const correctText = q.options[q.correct];
+            resultDetails.push({
+                question: q.text,
+                selected: selectedText,
+                correct: correctText,
+                isCorrect: isCorrect,
+                explanation: q.explanation
+            });
+        });
+        
+        renderResultPanel(score, resultDetails);
+        quizArea.style.display = 'none';
+        nextBtn.style.display = 'none';
+        resultPanelDiv.style.display = 'block';
+        renderProgressSegments();
+    }
+    
+    function renderResultPanel(score, details) {
+        const total = currentQuestions.length;
+        const percentage = Math.round((score/total)*100);
+        let grade = '';
+        if (percentage >= 80) grade = '🌟 Excellent! Outstanding Performance!';
+        else if (percentage >= 60) grade = '👍 Good Job! Keep it up!';
+        else if (percentage >= 40) grade = '📚 Keep Learning! You can do better!';
+        else grade = '💪 Need Practice! Review the material!';
+        
+        let detailsHtml = '';
+        details.forEach((item, idx) => {
+            const statusIcon = item.isCorrect ? 
+                '<i class="bi bi-check-circle-fill text-success"></i>' : 
+                '<i class="bi bi-x-circle-fill text-danger"></i>';
+            detailsHtml += `
+                <div class="result-detail-item">
+                    <div class="fw-semibold mb-2">${idx+1}. ${item.question} ${statusIcon}</div>
+                    <div class="small text-muted">📌 Your answer: ${item.selected}</div>
+                    <div class="small text-success">✅ Correct answer: ${item.correct}</div>
+                    <div class="small mt-2">💡 ${item.explanation}</div>
+                </div>
+            `;
+        });
+        
+        resultPanelDiv.innerHTML = `
+            <div class="result-card" id="pdfReportContent">
+                <div class="text-center mb-4">
+                    <i class="bi bi-trophy-fill" style="font-size: 3rem; color: #ed8936;"></i>
+                    <h2 class="fw-bold mt-2">Quiz Completed!</h2>
+                    <div class="display-4 fw-bold" style="background: linear-gradient(135deg, #ed8936, #9f7aea); -webkit-background-clip: text; background-clip: text; color: transparent;">
+                        ${score}/${total}
+                    </div>
+                    <div class="fs-5 mt-2">${grade}</div>
+                    <div class="progress mt-3" style="height: 12px;">
+                        <div class="progress-bar" style="width: ${percentage}%; transition: width 1s ease; background: linear-gradient(90deg, #ed8936, #f6ad55);"></div>
+                    </div>
+                    <p class="text-muted mt-2">${percentage}% Score</p>
+                </div>
+                
+                <h5 class="fw-bold mb-3"><i class="bi bi-journal-bookmark-fill"></i> Detailed Review</h5>
+                ${detailsHtml}
+                
+                <div class="d-flex gap-3 mt-4 justify-content-center flex-wrap">
+                    <button class="btn btn-success btn-custom" id="downloadPdfBtn">
+                        <i class="bi bi-filetype-pdf"></i> Download PDF Report
+                    </button>
+                    <button class="btn btn-primary btn-custom" id="restartFromResultBtn">
+                        <i class="bi bi-arrow-repeat"></i> Start New Quiz
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('downloadPdfBtn')?.addEventListener('click', downloadPDF);
+        document.getElementById('restartFromResultBtn')?.addEventListener('click', () => restartQuiz());
+    }
+    
+    function downloadPDF() {
+        const element = document.getElementById('pdfReportContent');
+        const opt = {
+            margin: [0.5, 0.5, 0.5, 0.5],
+            filename: `Quiz_Report_${new Date().toLocaleDateString()}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, letterRendering: true },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+    
+    function restartQuiz() {
+        stopTimer();
+        currentQuestions = getRandomQuestions(5);
+        const n = currentQuestions.length;
+        userAnswers = new Array(n).fill(-1);
+        answerStatus = new Array(n).fill(null);
+        currentIndex = 0;
+        quizCompleted = false;
+        timerSeconds = 60; // Reset to 60 seconds
+        
+        quizArea.style.display = 'block';
+        nextBtn.style.display = 'inline-flex';
+        resultPanelDiv.style.display = 'none';
+        
+        renderProgressSegments();
+        renderCurrentQuestion();
+    }
+    
+    // Initialize Quiz
+    function initQuiz() {
+        currentQuestions = getRandomQuestions(5);
+        const n = currentQuestions.length;
+        userAnswers = new Array(n).fill(-1);
+        answerStatus = new Array(n).fill(null);
+        currentIndex = 0;
+        quizCompleted = false;
+        timerSeconds = 60; // Set to 60 seconds
+        
+        renderProgressSegments();
+        renderCurrentQuestion();
+        
+        nextBtn.onclick = () => {
+            if (!quizCompleted && userAnswers[currentIndex] !== -1) {
+                if (currentIndex === currentQuestions.length - 1) finishQuiz();
+                else moveToNextQuestion();
+            } else if (!quizCompleted && userAnswers[currentIndex] === -1) {
+                const timerElement = document.getElementById('liveTimer');
+                timerElement?.parentElement.classList.add('timer-warning');
+                setTimeout(() => {
+                    timerElement?.parentElement.classList.remove('timer-warning');
+                }, 500);
+            }
+        };
+        
+        restartBtn.onclick = () => restartQuiz();
+    }
+    
+    initQuiz();
+</script>
+</body>
+</html>
